@@ -1,0 +1,7 @@
+build/
+.gradle/
+.kotlin/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+.idea/
+local.properties
