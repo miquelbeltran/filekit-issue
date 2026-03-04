@@ -28,9 +28,14 @@ import io.github.vinceglb.filekit.name
 import io.github.vinceglb.filekit.size
 import io.github.vinceglb.filekit.source
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
-import kotlinx.coroutines.delay
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.onUpload
+import io.ktor.client.request.forms.InputProvider
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.launch
-import kotlinx.io.Buffer
 import kotlinx.io.buffered
 
 @Composable
@@ -47,7 +52,7 @@ fun App() {
         // Heartbeat counter - if UI freezes, this stops incrementing
         LaunchedEffect(Unit) {
             while (true) {
-                delay(16)
+                kotlinx.coroutines.delay(16)
                 heartbeat++
             }
         }
@@ -58,27 +63,37 @@ fun App() {
                     uploading = true
                     uploadedBytes = 0L
                     totalBytes = file.size()
-                    status = "Reading file: ${file.name}"
+                    status = "Uploading ${file.name} to httpbin.org..."
 
-                    // This calls source() which triggers security-scoped resource
-                    // access on iOS - expected to freeze the UI
-                    val source = file.source().buffered()
+                    try {
+                        val client = HttpClient()
 
-                    status = "Uploading ${file.name}..."
-                    val chunk = Buffer()
-
-                    source.use { s ->
-                        while (true) {
-                            val read = s.readAtMostTo(chunk, 64 * 1024L)
-                            if (read == -1L) break
-                            chunk.clear()
-                            uploadedBytes += read
-                            // Simulate upload network delay
-                            delay(50)
+                        val response = client.submitFormWithBinaryData(
+                            url = "https://httpbin.org/post",
+                            formData = formData {
+                                append("description", "FileKit upload test")
+                                append(
+                                    "file",
+                                    InputProvider { file.source().buffered() },
+                                    Headers.build {
+                                        append(HttpHeaders.ContentType, "application/octet-stream")
+                                        append(HttpHeaders.ContentDisposition, "filename=\"${file.name}\"")
+                                    }
+                                )
+                            }
+                        ) {
+                            onUpload { bytesSentTotal, contentLength ->
+                                uploadedBytes = bytesSentTotal
+                                totalBytes = contentLength ?: file.size()
+                            }
                         }
+
+                        status = "Done! Server responded: ${response.status}"
+                        client.close()
+                    } catch (e: Exception) {
+                        status = "Error: ${e.message}"
                     }
 
-                    status = "Done! Uploaded ${uploadedBytes} bytes"
                     uploading = false
                 }
             }

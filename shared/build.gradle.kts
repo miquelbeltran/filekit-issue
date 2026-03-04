@@ -28,6 +28,12 @@ kotlin {
 
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.0")
+
+            implementation("io.ktor:ktor-client-core:3.4.0")
+        }
+
+        iosMain.dependencies {
+            implementation("io.ktor:ktor-client-darwin:3.4.0")
         }
     }
 }
